@@ -2294,7 +2294,7 @@ function Home({ navigate }) {
       /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { children: [
         /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("p", { className: "eyebrow text-[#EDE5D5]/45", children: "The shop" }),
         /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("h2", { className: "display-lg mt-2 text-3xl sm:text-4xl", children: "Thrift, done properly" }),
-        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("p", { className: "mt-3 max-w-xl text-sm leading-relaxed text-[#EDE5D5]/60", children: "Elevate X Thrift started with a simple idea: good clothing shouldn't be disposable. Every piece is sourced, checked and photographed in Panipat \u2014 no mass production, no restocks, no two the same." }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("p", { className: "mt-3 max-w-xl text-sm leading-relaxed text-[#EDE5D5]/60", children: "Elevate X Thrift started with a simple idea: good clothing shouldn't be disposable. Every piece is sourced and checked in Panipat, measured by hand and listed once \u2014 no mass production, no restocks, no two the same." }),
         /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "mt-5 flex flex-wrap gap-3", children: [
           /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("button", { onClick: () => navigate("/about"), className: "btn btn-cream px-5 py-3 text-sm", children: "Our story" }),
           /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("a", { href: SITE.instagramUrl, target: "_blank", rel: "noreferrer", className: "btn btn-ghost px-5 py-3 text-sm", children: [
@@ -2307,7 +2307,7 @@ function Home({ navigate }) {
       /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("ul", { className: "grid gap-2.5 text-sm", children: [
         "One-of-one pieces \u2014 when it's gone, it's gone",
         "Honest condition grading and listed flaws",
-        "Affordable prices, real photographs",
+        "Listed once, exactly as it is",
         "Reusing quality clothing instead of buying new"
       ].map((t) => /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("li", { className: "flex items-start gap-2.5 text-[#EDE5D5]/70", children: [
         /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(IconCheck, { className: "mt-0.5 h-4 w-4 shrink-0 text-[#D81F2A]" }),
@@ -2551,7 +2551,11 @@ function ProductPage({
             /* @__PURE__ */ (0, import_jsx_runtime14.jsx)("dd", { className: "mt-1 text-sm text-[#EDE5D5]/70", children: product.flaws && product.flaws.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime14.jsx)("ul", { className: "list-inside list-disc space-y-1", children: product.flaws.map((f) => /* @__PURE__ */ (0, import_jsx_runtime14.jsx)("li", { children: f }, f)) }) : /* @__PURE__ */ (0, import_jsx_runtime14.jsx)("span", { className: "text-[#EDE5D5]/50", children: "No notable flaws found during our check. As a pre-loved piece it may show light signs of wear." }) })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime14.jsx)("p", { className: "mt-4 text-[11px] leading-relaxed text-[#EDE5D5]/35", children: "One-of-one piece. Photos and details describe this exact garment \u2014 nothing is a stock image or a re-order." })
+        /* @__PURE__ */ (0, import_jsx_runtime14.jsxs)("p", { className: "mt-4 text-[11px] leading-relaxed text-[#EDE5D5]/35", children: [
+          "One-of-one piece \u2014 the size, condition and details describe this exact garment.",
+          " ",
+          product.images.length > 0 ? "Photographs show this piece; there is no stock imagery or re-order." : "Photographs are being added; the illustration above is a placeholder, not the garment."
+        ] })
       ] })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime14.jsxs)("section", { className: "mt-16", "aria-labelledby": "related-heading", children: [
