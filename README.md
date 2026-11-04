@@ -46,3 +46,9 @@ Replace the remote URL with your repository’s HTTPS URL. If you already added 
 - `npm run dev` — start the local development server
 - `npm run build` — build the site into `dist/`
 - `npm run preview` — preview the production build locally
+
+## Assets & ordering
+
+- **Logo** — the official crest is in `public/`: `crest-160.png` / `crest-240.webp` / `crest-512.webp` (transparent surround) and the favicons (`favicon.ico`, `icon-16/32/192/512.png`, `apple-touch-icon.png`, `site.webmanifest`). Swap those files to rebrand; no code changes needed.
+- **Product photos** — drop images into `public/products/` and set the matching `image` field in `src/data/products.ts`, e.g. `image: "/products/sunset-denim-jacket.jpg"`. Any product without an `image` automatically falls back to the built-in garment illustration.
+- **Ordering** — checkout builds a pre-filled WhatsApp message with the bag contents and opens it in `wa.me`. The number lives in `src/data/site.ts` (`whatsapp`, digits only with country code; `whatsappDisplay` for on-page display). Instagram DM is offered as a fallback.
