@@ -11,9 +11,110 @@
 }
 
 html { scroll-behavior: smooth; }
-body { font-family: var(--font-body); background: var(--color-cream); color: var(--color-ink); }
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  background-color: #eae6dc;
+  background-image:
+    radial-gradient(60rem 60rem at 8% -10%, #d8efc0 0%, transparent 60%),
+    radial-gradient(55rem 55rem at 100% 0%, #ffd9c7 0%, transparent 58%),
+    radial-gradient(50rem 50rem at 85% 55%, #d9e6ff 0%, transparent 60%),
+    radial-gradient(45rem 45rem at 0% 90%, #ffd6e5 0%, transparent 58%),
+    linear-gradient(160deg, #f6f1e6 0%, #eee9de 50%, #f2ece2 100%);
+  background-attachment: fixed;
+}
 .font-display { font-family: var(--font-display); }
 .font-script { font-family: var(--font-script); }
+
+/* ---------- Glass system ---------- */
+.glass {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.22));
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 18px 40px -18px rgba(17, 17, 16, 0.28),
+    0 2px 6px -2px rgba(17, 17, 16, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+}
+.glass-soft {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.14));
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 10px 28px -16px rgba(17, 17, 16, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.glass-dark {
+  background: linear-gradient(145deg, rgba(26, 26, 25, 0.82), rgba(17, 17, 16, 0.62));
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 22px 50px -20px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.glass-pill {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 18px -12px rgba(17, 17, 16, 0.35);
+}
+.glass-field {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -6px 14px -10px rgba(17, 17, 16, 0.35);
+}
+.glass-field:focus { border-color: rgba(17, 17, 16, 0.45); outline: none; }
+
+/* glass hover lift */
+.glass-lift { transition: transform .35s cubic-bezier(.2,.8,.25,1), box-shadow .35s ease, background .35s ease; }
+.glass-lift:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 30px 60px -24px rgba(17, 17, 16, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* diagonal light sheen used on frosted surfaces */
+.sheen { position: relative; overflow: hidden; isolation: isolate; }
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 62%, rgba(255,255,255,.22) 100%);
+  opacity: .8;
+  border-radius: inherit;
+}
+
+/* background blobs + mesh */
+.aurora {
+  position: fixed; inset: -20vmax; z-index: 0; pointer-events: none; overflow: hidden;
+  filter: blur(60px) saturate(140%);
+}
+.blob { position: absolute; border-radius: 9999px; opacity: .55; mix-blend-mode: multiply; }
+.blob-a { width: 46vmax; height: 46vmax; left: -8vmax; top: -10vmax; background: radial-gradient(circle at 40% 40%, #c9f169, #a7d94b 60%, transparent 72%); animation: drift 22s ease-in-out infinite; }
+.blob-b { width: 42vmax; height: 42vmax; right: -10vmax; top: -6vmax; background: radial-gradient(circle at 50% 50%, #ffb38a, #ff6b35 55%, transparent 72%); animation: drift 26s ease-in-out infinite reverse; opacity: .4; }
+.blob-c { width: 40vmax; height: 40vmax; right: 4vmax; top: 46vmax; background: radial-gradient(circle at 50% 50%, #b9d4ff, #7ea8f0 55%, transparent 72%); animation: drift 30s ease-in-out infinite; opacity: .45; }
+.blob-d { width: 36vmax; height: 36vmax; left: -6vmax; top: 60vmax; background: radial-gradient(circle at 50% 50%, #ffc2d6, #ff8fb1 55%, transparent 72%); animation: drift 24s ease-in-out infinite reverse; opacity: .42; }
+
+.noise {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .22; mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(6vmax, -4vmax, 0) scale(1.08); }
+  66% { transform: translate3d(-5vmax, 5vmax, 0) scale(.95); }
+}
 
 @keyframes floaty { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-14px) rotate(2deg)} }
 @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
@@ -26,8 +127,12 @@ body { font-family: var(--font-body); background: var(--color-cream); color: var
 .animate-marquee { animation: marquee 22s linear infinite; }
 .animate-spin-slow { animation: spin-slow 14s linear infinite; }
 .pop-in { animation: pop-in .45s ease both; }
-.drawer-in { animation: slide-in .3s ease both; }
+.drawer-in { animation: slide-in .32s cubic-bezier(.2,.8,.25,1) both; }
 .toast-in { animation: toast-in .25s ease both; }
 .garment-art { transition: transform .4s ease; }
 .group:hover .garment-art { transform: scale(1.07) rotate(-2deg); }
 .no-scrollbar::-webkit-scrollbar{display:none} .no-scrollbar{scrollbar-width:none}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-floaty, .animate-marquee, .animate-spin-slow, .blob { animation: none !important; }
+}
