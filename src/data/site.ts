@@ -16,4 +16,8 @@ export const SITE = {
   emailHref: "mailto:kartiktyagi970@gmail.com",
   instagramHandle: "@elevatex_thrift108",
   instagramUrl: "https://www.instagram.com/elevatex_thrift108/",
+  /** WhatsApp number in international format, digits only (91 = India). Used for order messages. */
+  whatsapp: "918571064108",
+  /** How the number is displayed on the site. */
+  whatsappDisplay: "+91 85710 64108",
 } as const;

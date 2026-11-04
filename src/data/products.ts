@@ -14,6 +14,12 @@ export interface Product {
   bg: string;   // card background
   ink: string;  // garment colour
   accent: string;
+  /**
+   * Optional product photo. Drop the file in `public/products/` and point here,
+   * e.g. `image: "/products/sunset-denim-jacket.jpg"`.
+   * Leave it out and the built-in garment illustration is used instead.
+   */
+  image?: string;
   tag?: string;
 }
 
