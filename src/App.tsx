@@ -59,6 +59,8 @@ export default function App() {
   const savings = bagItems.reduce((s, { p, qty }) => s + (p.mrp - p.price) * qty, 0);
 
   const waHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(orderMessage(bagItems, total, savings))}`;
+  // any link outside the bag should be a friendly hello, not an empty order
+  const waHello = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent("Hi ELEVATE THRIFT! I'd like to know more about the pieces on your site.")}`;
 
   const visible = useMemo(() => {
     let list = PRODUCTS.filter(p =>
@@ -117,7 +119,7 @@ export default function App() {
                 <p className="mt-5 max-w-md text-base text-[#EDE5D5]/60 sm:text-lg">Panipat's men's thrift fashion store — one-of-one vintage, streetwear, denim & shirts, hand-picked, quality-checked and priced for real life. When it's gone, it's gone.</p>
                 <div className="mt-7 flex flex-wrap gap-3">
                   <a href="#shop" className="rounded-full bg-[#E02330] px-7 py-3.5 font-bold text-white shadow-xl shadow-[#E02330]/35 transition hover:-translate-y-0.5 hover:bg-[#FF3B47]">Shop the drop ↓</a>
-                  <a href={waHref} target="_blank" rel="noreferrer" className="glass-pill rounded-full px-7 py-3.5 font-bold text-[#EDE5D5] transition hover:bg-white/15">💬 Order on WhatsApp</a>
+                  <a href={waHello} target="_blank" rel="noreferrer" className="glass-pill rounded-full px-7 py-3.5 font-bold text-[#EDE5D5] transition hover:bg-white/15">💬 Order on WhatsApp</a>
                   <a href={SITE.instagramUrl} target="_blank" rel="noreferrer" className="glass-pill rounded-full px-7 py-3.5 font-bold text-[#EDE5D5]/85 transition hover:bg-white/15">📸 {SITE.instagramHandle}</a>
                 </div>
                 <div className="mt-8 grid grid-cols-3 gap-3">
@@ -233,7 +235,7 @@ export default function App() {
                 </div>
                 <p className="mt-3 max-w-md text-[#EDE5D5]/70">{SITE.businessType} — premium pre-loved men's fashion, quality-checked in-store. Order on WhatsApp or DM us on Instagram for today's fresh drops, sizes & holds.</p>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <a href={waHref} target="_blank" rel="noreferrer" className="rounded-full bg-[#EDE5D5] px-6 py-3 text-sm font-extrabold text-[#0A0A0B] shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:bg-white">💬 WhatsApp {SITE.whatsappDisplay}</a>
+                  <a href={waHello} target="_blank" rel="noreferrer" className="rounded-full bg-[#EDE5D5] px-6 py-3 text-sm font-extrabold text-[#0A0A0B] shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:bg-white">💬 WhatsApp {SITE.whatsappDisplay}</a>
                   <a href={SITE.instagramUrl} target="_blank" rel="noreferrer" className="glass-pill rounded-full px-6 py-3 text-sm font-bold text-[#EDE5D5] transition hover:bg-white/20">📸 {SITE.instagramHandle}</a>
                   <a href={SITE.emailHref} className="glass-pill rounded-full px-6 py-3 text-sm font-bold text-[#EDE5D5] transition hover:bg-white/20">✉️ Email us</a>
                 </div>
