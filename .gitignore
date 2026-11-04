@@ -17,3 +17,6 @@ dist-ssr/
 .DS_Store
 Thumbs.db
 *.swp
+
+# Test build artefacts
+tests/.build/
