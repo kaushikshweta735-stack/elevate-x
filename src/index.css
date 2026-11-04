@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Barlow Condensed", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --font-script: "Kaushan Script", cursive;
+  --color-cream: #faf6ee;
+  --color-ink: #111110;
+  --color-lime-pop: #c9f169;
+  --color-burnt: #ff6b35;
+}
+
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--color-cream); color: var(--color-ink); }
+.font-display { font-family: var(--font-display); }
+.font-script { font-family: var(--font-script); }
+
+@keyframes floaty { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-14px) rotate(2deg)} }
+@keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+@keyframes spin-slow { to{transform:rotate(360deg)} }
+@keyframes pop-in { from{opacity:0; transform:translateY(16px) scale(.98)} to{opacity:1; transform:none} }
+@keyframes slide-in { from{transform:translateX(100%)} to{transform:none} }
+@keyframes toast-in { from{opacity:0; transform:translate(-50%,12px)} to{opacity:1; transform:translate(-50%,0)} }
+
+.animate-floaty { animation: floaty 5s ease-in-out infinite; }
+.animate-marquee { animation: marquee 22s linear infinite; }
+.animate-spin-slow { animation: spin-slow 14s linear infinite; }
+.pop-in { animation: pop-in .45s ease both; }
+.drawer-in { animation: slide-in .3s ease both; }
+.toast-in { animation: toast-in .25s ease both; }
+.garment-art { transition: transform .4s ease; }
+.group:hover .garment-art { transform: scale(1.07) rotate(-2deg); }
+.no-scrollbar::-webkit-scrollbar{display:none} .no-scrollbar{scrollbar-width:none}
