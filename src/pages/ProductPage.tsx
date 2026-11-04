@@ -245,7 +245,10 @@ export default function ProductPage({
           </dl>
 
           <p className="mt-4 text-[11px] leading-relaxed text-[#EDE5D5]/35">
-            One-of-one piece. Photos and details describe this exact garment — nothing is a stock image or a re-order.
+            One-of-one piece — the size, condition and details describe this exact garment.{" "}
+            {product.images.length > 0
+              ? "Photographs show this piece; there is no stock imagery or re-order."
+              : "Photographs are being added; the illustration above is a placeholder, not the garment."}
           </p>
         </div>
       </div>

@@ -148,7 +148,8 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
             <h2 className="display-lg mt-2 text-3xl sm:text-4xl">Thrift, done properly</h2>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#EDE5D5]/60">
               Elevate X Thrift started with a simple idea: good clothing shouldn't be disposable. Every piece is
-              sourced, checked and photographed in Panipat — no mass production, no restocks, no two the same.
+              sourced and checked in Panipat, measured by hand and listed once — no mass production, no restocks,
+              no two the same.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <button onClick={() => navigate("/about")} className="btn btn-cream px-5 py-3 text-sm">Our story</button>
@@ -161,7 +162,7 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
             {[
               "One-of-one pieces — when it's gone, it's gone",
               "Honest condition grading and listed flaws",
-              "Affordable prices, real photographs",
+              "Listed once, exactly as it is",
               "Reusing quality clothing instead of buying new",
             ].map((t) => (
               <li key={t} className="flex items-start gap-2.5 text-[#EDE5D5]/70">
