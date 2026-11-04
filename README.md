@@ -1,6 +1,16 @@
-# Elevate X Thrift
+# Elevate Thrift
 
-A responsive thrift store storefront built with React, TypeScript, Vite, and Tailwind CSS. It features a glassmorphism-inspired visual style, animated garment illustrations, category filters, favourites, and a shopping bag drawer.
+A responsive men's thrift store storefront built with React, TypeScript, Vite, and Tailwind CSS. It features a glassmorphism-inspired visual style, animated garment illustrations, category filters, favourites, and a shopping bag drawer.
+
+## Business information
+
+- **Brand:** ELEVATE THRIFT
+- **Business type:** Men's Thrift Fashion Store
+- **Location:** Panipat, Haryana, India
+- **Email:** kartiktyagi970@gmail.com
+- **Instagram:** [@elevatex_thrift108](https://www.instagram.com/elevatex_thrift108/)
+
+> Shopify note: business details are centralised in `src/data/site.ts` — when migrating, map them to Shopify *Settings → Store details / Social links* and reuse the same values in theme settings (`config/settings_data.json`). Product fields in `src/data/products.ts` (title, price, compare-at price/MRP, size, condition, category) mirror Shopify product/variant fields.
 
 ## Run locally
 
