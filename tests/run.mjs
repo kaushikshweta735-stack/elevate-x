@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const files = process.argv.slice(2);
-const targets = files.length ? files : ["tests/journey.test.tsx", "tests/layout.test.tsx", "tests/interaction.test.tsx"];
+const targets = files.length ? files : ["tests/journey.test.tsx", "tests/layout.test.tsx", "tests/interaction.test.tsx", "tests/cms.test.tsx"];
 const outputs = [];
 for (const target of targets) {
   const out = path.resolve(`tests/.build/${path.basename(target, ".tsx")}.test.cjs`);
@@ -22,6 +22,8 @@ for (const target of targets) {
     "import.meta.env.DEV": "false",
     "import.meta.env.PROD": "true",
     "import.meta.env.VITE_ORDERS_ENDPOINT": "undefined",
+    "import.meta.env.VITE_SANITY_PROJECT_ID": "undefined",
+    "import.meta.env.VITE_SANITY_DATASET": "undefined",
   },
   });
 }

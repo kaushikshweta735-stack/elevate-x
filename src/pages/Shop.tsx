@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import ProductCard from "../components/ProductCard";
-import { CATEGORIES, PRODUCTS, discountPercent, isNewArrival, type CategoryFilter } from "../data/products";
+import { CATEGORIES, discountPercent, isNewArrival, type CategoryFilter } from "../data/products";
 import { CONDITIONS } from "../data/shop";
 import { cx } from "../lib/format";
 import { useShop } from "../store/shop";
@@ -26,7 +26,7 @@ export default function Shop({
   setParams: (next: Record<string, string | null>) => void;
   headingOverride?: { eyebrow: string; title: string; blurb: string };
 }) {
-  const { saved } = useShop();
+  const { saved, products, catalogueStatus } = useShop();
   const [query, setQuery] = useState(params.get("q") ?? "");
 
   const category = (params.get("category") as CategoryFilter) ?? "All";
@@ -41,7 +41,7 @@ export default function Shop({
 
   const results = useMemo(() => {
     const q = urlQuery.trim().toLowerCase();
-    let list = PRODUCTS.filter((p) => {
+    let list = products.filter((p) => {
       if (category !== "All" && p.category !== category) return false;
       if (condition && p.condition !== condition) return false;
       if (newOnly && !isNewArrival(p)) return false;
@@ -66,7 +66,7 @@ export default function Shop({
         list = [...list].sort((a, b) => Number(Boolean(b.tag)) - Number(Boolean(a.tag)));
     }
     return list;
-  }, [category, condition, newOnly, wishlistOnly, sort, urlQuery, saved]);
+  }, [category, condition, newOnly, wishlistOnly, sort, urlQuery, saved, products]);
 
   const activeFilters = [
     category !== "All" && { key: "category", label: category },
@@ -202,7 +202,20 @@ export default function Shop({
       </div>
 
       {/* Grid */}
-      {results.length === 0 ? (
+      {catalogueStatus === "loading" ? (
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="overflow-hidden rounded-2xl border border-[#EDE5D5]/10 bg-white/[0.02]">
+              <div className="animate-pulse bg-white/5" style={{ aspectRatio: "4 / 5" }} />
+              <div className="space-y-2 p-3.5">
+                <div className="h-2.5 w-1/3 animate-pulse rounded bg-white/10" />
+                <div className="h-3 w-3/4 animate-pulse rounded bg-white/10" />
+                <div className="h-6 w-1/2 animate-pulse rounded bg-white/10" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : results.length === 0 ? (
         <div className="mt-16 rounded-2xl border border-dashed border-[#EDE5D5]/15 bg-white/[0.02] px-6 py-16 text-center">
           <p className="font-display text-3xl font-bold uppercase">
             {wishlistOnly ? "Nothing saved yet" : "No pieces match that"}

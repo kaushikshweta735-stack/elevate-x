@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CONDITION_GUIDE, DELIVERY } from "../data/shop";
-import { PRODUCTS, PRODUCT_BY_SLUG, discountPercent, isAvailable, type ProductImage } from "../data/products";
+import { discountPercent, isAvailable, type ProductImage } from "../data/products";
 import { inr } from "../lib/format";
 import { useShop } from "../store/shop";
 import { ProductMedia } from "../components/ProductMedia";
@@ -23,8 +23,8 @@ export default function ProductPage({
   slug: string;
   navigate: (to: string) => void;
 }) {
-  const product = PRODUCT_BY_SLUG.get(slug);
-  const { addToBag, toggleSaved, isSaved, notify } = useShop();
+  const { products, bySlug, addToBag, toggleSaved, isSaved, notify } = useShop();
+  const product = bySlug.get(slug);
   const [active, setActive] = useState(0);
   const [qty, setQty] = useState(1);
   const [zoom, setZoom] = useState(false);
@@ -53,10 +53,10 @@ export default function ProductPage({
 
   const related = useMemo(
     () =>
-      PRODUCTS.filter((p) => p.slug !== product.slug)
+      products.filter((p) => p.slug !== product.slug)
         .sort((a, b) => Number(b.category === product.category) - Number(a.category === product.category))
         .slice(0, 4),
-    [product.slug, product.category],
+    [products, product.slug, product.category],
   );
 
   const guide = CONDITION_GUIDE.find((g) => g.label === product.condition);
