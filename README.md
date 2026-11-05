@@ -103,3 +103,37 @@ headers. Push to `main` and Vercel rebuilds.
 
 Post-deploy checks: `https://elevatexthrift.vercel.app/shop`, a product URL,
 `/checkout`, `favicon.ico`, `/site.webmanifest`, `/sitemap.xml`.
+
+## Admin — adding pieces and marking them sold
+
+The shop can be managed from **Sanity Studio** (the admin) instead of editing code.
+
+**One-time setup (5 minutes)**
+
+1. Free account + project at <https://sanity.io> → note the **Project ID** (dataset `production`).
+2. In Sanity → **API → CORS origins**, add `http://localhost:5173` and
+   `https://elevatexthrift.vercel.app` (credentials not required — read-only public content).
+3. `cd studio && cp .env.example .env` → paste the project id → `npm install && npm run dev`.
+   That local URL is your admin. `npx sanity deploy` gives you a permanent
+   `https://<name>.sanity.studio` address instead.
+4. In Vercel → Settings → Environment Variables add `VITE_SANITY_PROJECT_ID` and
+   `VITE_SANITY_DATASET=production`, then redeploy.
+
+**Daily use**
+
+* **List a piece** — Create → Piece: name, slug (Generate), category, price, photos
+  (front/back/detail/fabric tags), size, condition, measurements, flaws → **Publish**.
+* **Sold out** — Stock status → *Sold out* → **Publish**. The piece stays on the site
+  marked "Sold" and can no longer be added to a bag; it is also dropped from any
+  customer's saved bag on their next visit.
+* **On hold** — *On hold* while someone is deciding; still visible, still buyable.
+
+**Safety behaviour**
+
+* No project configured → the site uses the built-in catalogue, exactly as before.
+* CMS unreachable or empty → falls back to the built-in catalogue and shows a
+  small notice, so the shop never renders blank.
+* Last good catalogue is cached locally, so returning visitors see real stock even
+  if the CMS is slow.
+* The admin is the only place with write access — the browser client is read-only,
+  and no API token ever ships to the site.

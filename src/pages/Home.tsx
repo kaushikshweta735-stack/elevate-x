@@ -1,19 +1,22 @@
 import { useMemo } from "react";
 import ProductCard from "../components/ProductCard";
 import { SITE } from "../data/site";
-import { CATEGORIES, PRODUCTS, hasPhotos, isNewArrival } from "../data/products";
+import { CATEGORIES, hasPhotos, isNewArrival } from "../data/products";
+import { useShop } from "../store/shop";
 import { ProductMedia } from "../components/ProductMedia";
 import { IconArrow, IconInstagram, IconTruck, IconWhatsApp, IconCheck } from "../components/ui";
 
 export default function Home({ navigate }: { navigate: (to: string) => void }) {
-  const fresh = useMemo(() => {
-    const newlyAdded = PRODUCTS.filter((p) => isNewArrival(p));
-    return (newlyAdded.length > 0 ? newlyAdded : PRODUCTS).slice(0, 4);
-  }, []);
+  const { products } = useShop();
 
-  const featured = useMemo(() => PRODUCTS.slice(0, 8), []);
-  const heroPiece = useMemo(() => PRODUCTS.find(hasPhotos) ?? PRODUCTS[0], []);
-  const photoCount = useMemo(() => PRODUCTS.filter(hasPhotos).length, []);
+  const fresh = useMemo(() => {
+    const newlyAdded = products.filter((p) => isNewArrival(p));
+    return (newlyAdded.length > 0 ? newlyAdded : products).slice(0, 4);
+  }, [products]);
+
+  const featured = useMemo(() => products.slice(0, 8), [products]);
+  const heroPiece = useMemo(() => products.find(hasPhotos) ?? products[0] ?? null, [products]);
+  const photoCount = useMemo(() => products.filter(hasPhotos).length, [products]);
 
   return (
     <>
@@ -59,18 +62,24 @@ export default function Home({ navigate }: { navigate: (to: string) => void }) {
           <div className="relative">
             <div className="relative overflow-hidden rounded-2xl border border-[#EDE5D5]/14 bg-[#121014]">
               <div className="product-frame">
-                <ProductMedia product={heroPiece} priority sizes="(max-width: 1024px) 100vw, 45vw" />
+                {heroPiece ? (
+                  <ProductMedia product={heroPiece} priority sizes="(max-width: 1024px) 100vw, 45vw" />
+                ) : (
+                  <div className="h-full w-full animate-pulse bg-white/5" aria-hidden="true" />
+                )}
               </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-4">
-                <p className="eyebrow text-[#EDE5D5]/55">{photoCount > 0 ? "On the rack" : "The rack, illustrated"}</p>
-                <p className="mt-0.5 font-display text-2xl font-extrabold">{heroPiece.name}</p>
-                <button
-                  onClick={() => navigate(`/product/${heroPiece.slug}`)}
-                  className="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-[#EDE5D5]/80 uppercase hover:text-white"
-                >
-                  View piece <IconArrow className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              {heroPiece && (
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-4">
+                  <p className="eyebrow text-[#EDE5D5]/55">{photoCount > 0 ? "On the rack" : "The rack, illustrated"}</p>
+                  <p className="mt-0.5 font-display text-2xl font-extrabold">{heroPiece.name}</p>
+                  <button
+                    onClick={() => navigate(`/product/${heroPiece.slug}`)}
+                    className="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-[#EDE5D5]/80 uppercase hover:text-white"
+                  >
+                    View piece <IconArrow className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
             <div className="pointer-events-none absolute -top-3 -left-3 rounded-full border border-[#D81F2A]/40 bg-[#D81F2A] px-3 py-1 text-[10px] font-extrabold tracking-[0.16em] text-white uppercase">
               New drop weekly

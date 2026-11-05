@@ -13,7 +13,7 @@ import Shop from "./pages/Shop";
 
 function Shell() {
   const { route, navigate, params, url } = useRouter();
-  const { toast, count } = useShop();
+  const { toast, count, catalogueError } = useShop();
   const [bagOpen, setBagOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -55,6 +55,12 @@ function Shell() {
         query={query}
         onQuery={(q) => { setQuery(q); }}
       />
+
+      {catalogueError && (
+        <p role="status" className="border-b border-[#d8a423]/25 bg-[#d8a423]/10 px-4 py-2 text-center text-xs text-[#f0d79a]">
+          Showing the built-in catalogue — {catalogueError}
+        </p>
+      )}
 
       <main id="main" className="flex-1">
         {route.name === "home" && <Home navigate={navigate} />}

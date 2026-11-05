@@ -358,6 +358,140 @@ var init_products = __esm({
   }
 });
 
+// src/lib/cms.ts
+function normaliseProduct(raw) {
+  if (!raw?.name || !raw?.slug) return null;
+  const category = CATEGORIES.includes(raw.category ?? "") ? raw.category : "Vintage";
+  const condition = CONDITIONS2.includes(raw.condition ?? "") ? raw.condition : "Good";
+  const images = (raw.images ?? []).filter((i) => Boolean(i?.src)).map((i) => ({
+    src: i.src,
+    kind: KINDS.includes(i.kind ?? "") ? i.kind : "front",
+    alt: i.alt
+  }));
+  return {
+    slug: raw.slug,
+    name: raw.name,
+    category,
+    price: Number(raw.price) || 0,
+    mrp: raw.mrp ? Number(raw.mrp) : void 0,
+    size: raw.size ?? "\u2014",
+    condition,
+    era: raw.era ?? "",
+    availability: AVAILABILITY.includes(raw.availability) ? raw.availability : "in-stock",
+    images,
+    measurements: (raw.measurements ?? []).filter((m) => m?.label && m?.value).map((m) => ({ label: m.label, value: m.value })),
+    fabric: raw.fabric,
+    flaws: raw.flaws,
+    description: raw.description,
+    tag: raw.tag,
+    addedAt: raw.addedAt,
+    // illustration fallback styling (only used if the piece has no photo)
+    garment: "shirt",
+    bg: "#E9DFCE",
+    ink: "#3a2c28",
+    accent: "#D81F2A"
+  };
+}
+function useCatalogue() {
+  const [state, setState] = (0, import_react.useState)(
+    () => cmsEnabled() ? { ...builtIn(), status: "loading" } : builtIn()
+  );
+  (0, import_react.useEffect)(() => {
+    if (!cmsEnabled()) return;
+    let cancelled = false;
+    const cacheKey = "elevate.catalogue.v1";
+    try {
+      const cached = window.localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setState({
+            products: parsed,
+            bySlug: new Map(parsed.map((p) => [p.slug, p])),
+            source: "cms",
+            status: "ready"
+          });
+        }
+      }
+    } catch {
+    }
+    const url = `https://${SANITY.projectId}.apicdn.sanity.io/v${SANITY.apiVersion}/data/query/${SANITY.dataset}?query=${encodeURIComponent(QUERY)}`;
+    fetch(url).then((r) => {
+      if (!r.ok) throw new Error(`CMS responded ${r.status}`);
+      return r.json();
+    }).then((json) => {
+      if (cancelled) return;
+      const products = (json.result ?? []).map(normaliseProduct).filter(Boolean);
+      if (products.length === 0) {
+        setState({ ...builtIn(), error: "The CMS has no published products yet." });
+        return;
+      }
+      setState({
+        products,
+        bySlug: new Map(products.map((p) => [p.slug, p])),
+        source: "cms",
+        status: "ready"
+      });
+      try {
+        window.localStorage.setItem(cacheKey, JSON.stringify(products));
+      } catch {
+      }
+    }).catch((err) => {
+      if (cancelled) return;
+      setState((prev) => ({
+        ...prev,
+        status: "ready",
+        error: prev.source === "cms" ? void 0 : `CMS unavailable (${err.message}); showing the built-in catalogue.`
+      }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return state;
+}
+var import_react, SANITY, cmsEnabled, QUERY, KINDS, CONDITIONS2, AVAILABILITY, builtIn;
+var init_cms = __esm({
+  "src/lib/cms.ts"() {
+    "use strict";
+    import_react = require("react");
+    init_products();
+    SANITY = {
+      projectId: "",
+      dataset: "production",
+      apiVersion: "2024-10-01"
+    };
+    cmsEnabled = () => SANITY.projectId.length > 0;
+    QUERY = `*[_type == "product" && !(_id in path("drafts.**"))] | order(order asc, _createdAt desc) {
+  "slug": slug.current,
+  name,
+  category,
+  price,
+  mrp,
+  size,
+  condition,
+  era,
+  availability,
+  description,
+  fabric,
+  flaws,
+  measurements[]{label, value},
+  tag,
+  addedAt,
+  "images": images[]{ "src": asset->url, kind, alt }
+}`;
+    KINDS = ["front", "back", "detail", "fabric", "label"];
+    CONDITIONS2 = ["Excellent", "Like New", "Good", "Vintage"];
+    AVAILABILITY = ["in-stock", "reserved", "sold"];
+    builtIn = () => ({
+      products: PRODUCTS,
+      bySlug: new Map(PRODUCTS.map((p) => [p.slug, p])),
+      source: "built-in",
+      status: "ready"
+    });
+  }
+});
+
 // src/store/shop.tsx
 function reducer(state, action) {
   switch (action.type) {
@@ -390,6 +524,14 @@ function reducer(state, action) {
       return { ...state, lines: state.lines.filter((l) => l.id !== action.id) };
     case "clear":
       return { ...state, lines: [] };
+    case "prune": {
+      const valid = new Set(action.validSlugs);
+      const sold = new Set(action.soldSlugs);
+      const lines = state.lines.filter((l) => valid.has(l.slug) && !sold.has(l.slug));
+      const saved = state.saved.filter((s) => valid.has(s));
+      if (lines.length === state.lines.length && saved.length === state.saved.length) return state;
+      return { ...state, lines, saved };
+    }
     case "wishlist": {
       const has = state.saved.includes(action.slug);
       return {
@@ -409,23 +551,22 @@ function readStored() {
     const lines = rawCart ? JSON.parse(rawCart) : [];
     const saved = rawSaved ? JSON.parse(rawSaved) : [];
     return {
-      // drop lines whose product no longer exists or is sold out
-      lines: Array.isArray(lines) ? lines.filter((l) => l && typeof l.slug === "string" && PRODUCT_BY_SLUG.has(l.slug)).filter((l) => {
-        const p = PRODUCT_BY_SLUG.get(l.slug);
-        return p ? p.availability !== "sold" : false;
-      }).filter((l) => typeof l.size === "string" && Number.isFinite(l.qty) && l.qty > 0).map((l) => ({ ...l, id: lineId(l.slug, l.size), qty: Math.min(MAX_QTY, Math.round(l.qty)) })) : [],
-      saved: Array.isArray(saved) ? saved.filter((s) => PRODUCT_BY_SLUG.has(s)) : []
+      // structure is validated here; existence/sold-out is reconciled once the
+      // catalogue has loaded (see the `prune` effect in ShopProvider)
+      lines: Array.isArray(lines) ? lines.filter((l) => l && typeof l.slug === "string" && typeof l.size === "string").filter((l) => Number.isFinite(l.qty) && l.qty > 0).map((l) => ({ ...l, id: lineId(l.slug, l.size), qty: Math.min(MAX_QTY, Math.round(l.qty)) })) : [],
+      saved: Array.isArray(saved) ? saved.filter((s) => typeof s === "string") : []
     };
   } catch {
     return {};
   }
 }
 function ShopProvider({ children }) {
-  const [state, dispatch] = (0, import_react.useReducer)(reducer, { lines: [], saved: [], hydrated: false });
-  const [toast, setToast] = (0, import_react.useState)("");
-  const [details, setDetailsState] = (0, import_react.useState)(EMPTY_DETAILS);
-  const toastTimer = (0, import_react.useRef)(void 0);
-  (0, import_react.useEffect)(() => {
+  const catalogue = useCatalogue();
+  const [state, dispatch] = (0, import_react2.useReducer)(reducer, { lines: [], saved: [], hydrated: false });
+  const [toast, setToast] = (0, import_react2.useState)("");
+  const [details, setDetailsState] = (0, import_react2.useState)(EMPTY_DETAILS);
+  const toastTimer = (0, import_react2.useRef)(void 0);
+  (0, import_react2.useEffect)(() => {
     dispatch({ type: "hydrate", state: readStored() });
     try {
       const raw = window.localStorage.getItem(DETAILS_KEY);
@@ -433,7 +574,7 @@ function ShopProvider({ children }) {
     } catch {
     }
   }, []);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     if (!state.hydrated) return;
     try {
       window.localStorage.setItem(CART_KEY, JSON.stringify(state.lines));
@@ -441,34 +582,42 @@ function ShopProvider({ children }) {
     } catch {
     }
   }, [state.lines, state.saved, state.hydrated]);
-  const setDetails = (0, import_react.useCallback)((d) => {
+  const setDetails = (0, import_react2.useCallback)((d) => {
     setDetailsState(d);
     try {
       window.localStorage.setItem(DETAILS_KEY, JSON.stringify(d));
     } catch {
     }
   }, []);
-  const notify = (0, import_react.useCallback)((message) => {
+  const notify = (0, import_react2.useCallback)((message) => {
     setToast(message);
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(""), 2600);
   }, []);
-  const addToBag = (0, import_react.useCallback)((p, opts) => {
+  const addToBag = (0, import_react2.useCallback)((p, opts) => {
     const size = opts?.size ?? p.size;
     dispatch({ type: "add", slug: p.slug, size, qty: opts?.qty });
     if (!opts?.silent) notify(`${p.name} added to bag`);
   }, [notify]);
-  const lines = (0, import_react.useMemo)(
+  (0, import_react2.useEffect)(() => {
+    if (!state.hydrated || catalogue.status !== "ready") return;
+    dispatch({
+      type: "prune",
+      validSlugs: catalogue.products.map((p) => p.slug),
+      soldSlugs: catalogue.products.filter((p) => p.availability === "sold").map((p) => p.slug)
+    });
+  }, [state.hydrated, catalogue.status, catalogue.products]);
+  const lines = (0, import_react2.useMemo)(
     () => state.lines.flatMap((l) => {
-      const product = PRODUCT_BY_SLUG.get(l.slug);
+      const product = catalogue.bySlug.get(l.slug);
       if (!product) return [];
       return [{ ...l, product, lineTotal: product.price * l.qty }];
     }),
-    [state.lines]
+    [state.lines, catalogue.bySlug]
   );
   const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
   const count = lines.reduce((sum, l) => sum + l.qty, 0);
-  const deliveryCharge = (0, import_react.useMemo)(() => {
+  const deliveryCharge = (0, import_react2.useMemo)(() => {
     if (lines.length === 0) return 0;
     const { deliveryCharge: flat, freeDeliveryAbove } = DELIVERY;
     if (freeDeliveryAbove !== null && subtotal >= freeDeliveryAbove) return 0;
@@ -476,6 +625,11 @@ function ShopProvider({ children }) {
   }, [lines.length, subtotal]);
   const total = deliveryCharge === null ? null : subtotal + deliveryCharge;
   const value = {
+    products: catalogue.products,
+    bySlug: catalogue.bySlug,
+    catalogueSource: catalogue.source,
+    catalogueStatus: catalogue.status,
+    catalogueError: catalogue.error,
     hydrated: state.hydrated,
     lines,
     count,
@@ -497,17 +651,17 @@ function ShopProvider({ children }) {
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ShopContext.Provider, { value, children });
 }
 function useShop() {
-  const ctx = (0, import_react.useContext)(ShopContext);
+  const ctx = (0, import_react2.useContext)(ShopContext);
   if (!ctx) throw new Error("useShop must be used inside <ShopProvider>");
   return ctx;
 }
-var import_react, import_jsx_runtime, lineId, MAX_QTY, CART_KEY, SAVED_KEY, EMPTY_DETAILS, DETAILS_KEY, ShopContext;
+var import_react2, import_jsx_runtime, lineId, MAX_QTY, CART_KEY, SAVED_KEY, EMPTY_DETAILS, DETAILS_KEY, ShopContext;
 var init_shop2 = __esm({
   "src/store/shop.tsx"() {
     "use strict";
-    import_react = require("react");
+    import_react2 = require("react");
     init_shop();
-    init_products();
+    init_cms();
     import_jsx_runtime = require("react/jsx-runtime");
     lineId = (slug, size) => `${slug}::${size}`;
     MAX_QTY = 5;
@@ -527,7 +681,7 @@ var init_shop2 = __esm({
       notes: ""
     };
     DETAILS_KEY = "elevate.checkout.v1";
-    ShopContext = (0, import_react.createContext)(null);
+    ShopContext = (0, import_react2.createContext)(null);
   }
 });
 
@@ -584,7 +738,7 @@ function ProductMedia({
   sizes = "(max-width: 640px) 50vw, 25vw",
   priority = false
 }) {
-  const [failed, setFailed] = (0, import_react2.useState)(false);
+  const [failed, setFailed] = (0, import_react3.useState)(false);
   const primary = image ?? product.images[0];
   const src = primary ? "/" + primary.src.replace(/^\//, "") : null;
   if (src && !failed) {
@@ -606,11 +760,11 @@ function ProductMedia({
 function NoPhotoHint({ className }) {
   return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: cx("pointer-events-none absolute left-2.5 bottom-2.5 rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-bold tracking-[0.1em] text-[#EDE5D5]/70 uppercase backdrop-blur", className), children: "Illustration" });
 }
-var import_react2, import_jsx_runtime3;
+var import_react3, import_jsx_runtime3;
 var init_ProductMedia = __esm({
   "src/components/ProductMedia.tsx"() {
     "use strict";
-    import_react2 = require("react");
+    import_react3 = require("react");
     init_GarmentArt();
     init_format();
     import_jsx_runtime3 = require("react/jsx-runtime");
@@ -720,7 +874,7 @@ function BagDrawer({
   navigate
 }) {
   const { lines, count, subtotal, deliveryCharge, setQty, removeLine } = useShop();
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!open) return;
     const onKey = (e) => {
       if (e.key === "Escape") onClose();
@@ -848,11 +1002,11 @@ function BagDrawer({
     ] })
   ] });
 }
-var import_react3, import_jsx_runtime5;
+var import_react4, import_jsx_runtime5;
 var init_BagDrawer = __esm({
   "src/components/BagDrawer.tsx"() {
     "use strict";
-    import_react3 = require("react");
+    import_react4 = require("react");
     init_shop();
     init_format();
     init_shop2();
@@ -895,7 +1049,7 @@ var init_site = __esm({
 
 // src/components/SiteMark.tsx
 function SiteMark({ className = "h-12 w-12" }) {
-  const [failed, setFailed] = (0, import_react4.useState)(false);
+  const [failed, setFailed] = (0, import_react5.useState)(false);
   if (failed) {
     return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("svg", { viewBox: "0 0 64 64", className, "aria-label": "Elevate x Thrift", role: "img", children: [
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("circle", { cx: "32", cy: "32", r: "30", fill: "#0A0A0B", stroke: "#EDE5D5", strokeOpacity: ".5", strokeWidth: "1.5" }),
@@ -918,11 +1072,11 @@ function SiteMark({ className = "h-12 w-12" }) {
     )
   ] });
 }
-var import_react4, import_jsx_runtime6;
+var import_react5, import_jsx_runtime6;
 var init_SiteMark = __esm({
   "src/components/SiteMark.tsx"() {
     "use strict";
-    import_react4 = require("react");
+    import_react5 = require("react");
     import_jsx_runtime6 = require("react/jsx-runtime");
   }
 });
@@ -1038,16 +1192,16 @@ function Header({
   onQuery
 }) {
   const { count, saved } = useShop();
-  const [menuOpen, setMenuOpen] = (0, import_react5.useState)(false);
-  const [searchOpen, setSearchOpen] = (0, import_react5.useState)(false);
-  const searchRef = (0, import_react5.useRef)(null);
-  (0, import_react5.useEffect)(() => {
+  const [menuOpen, setMenuOpen] = (0, import_react6.useState)(false);
+  const [searchOpen, setSearchOpen] = (0, import_react6.useState)(false);
+  const searchRef = (0, import_react6.useRef)(null);
+  (0, import_react6.useEffect)(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
-  (0, import_react5.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     setMenuOpen(false);
   }, [route]);
-  (0, import_react5.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
@@ -1224,11 +1378,11 @@ function Header({
     ] })
   ] });
 }
-var import_react5, import_jsx_runtime8, LINKS;
+var import_react6, import_jsx_runtime8, LINKS;
 var init_Header = __esm({
   "src/components/Header.tsx"() {
     "use strict";
-    import_react5 = require("react");
+    import_react6 = require("react");
     init_site();
     init_shop2();
     init_SiteMark();
@@ -1258,13 +1412,13 @@ function parseRoute(pathname) {
 }
 function useRouter() {
   const readUrl = () => typeof window === "undefined" ? "/" : window.location.pathname + window.location.search;
-  const [url, setUrl] = (0, import_react6.useState)(readUrl);
-  (0, import_react6.useEffect)(() => {
+  const [url, setUrl] = (0, import_react7.useState)(readUrl);
+  (0, import_react7.useEffect)(() => {
     const onPop = () => setUrl(readUrl());
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  const navigate = (0, import_react6.useCallback)((to, opts = {}) => {
+  const navigate = (0, import_react7.useCallback)((to, opts = {}) => {
     const [, hash] = to.split("#");
     if (opts.replace) window.history.replaceState({}, "", to);
     else window.history.pushState({}, "", to);
@@ -1284,10 +1438,10 @@ function useRouter() {
   const [pathname, search] = url.split("?");
   const route = parseRoute(pathname);
   const params = new URLSearchParams(search ?? "");
-  (0, import_react6.useEffect)(() => {
+  (0, import_react7.useEffect)(() => {
     document.title = ROUTE_TITLES[route.name] ?? ROUTE_TITLES.home;
   }, [route.name]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react7.useEffect)(() => {
     const onClick = (event) => {
       if (event.defaultPrevented || event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -1305,11 +1459,11 @@ function useRouter() {
   }, [navigate]);
   return { route, navigate, pathname, params, url };
 }
-var import_react6, ROUTE_TITLES;
+var import_react7, ROUTE_TITLES;
 var init_router = __esm({
   "src/lib/router.tsx"() {
     "use strict";
-    import_react6 = require("react");
+    import_react7 = require("react");
     ROUTE_TITLES = {
       home: "Elevate X Thrift \u2014 Men's Thrift Fashion | Panipat, Haryana",
       shop: "Shop \u2014 Elevate X Thrift",
@@ -1594,13 +1748,13 @@ function Field({
 }
 function Checkout({ navigate }) {
   const { lines, subtotal, deliveryCharge, total, setQty, removeLine, details, setDetails, count } = useShop();
-  const [step, setStep] = (0, import_react7.useState)("details");
-  const [touched, setTouched] = (0, import_react7.useState)({});
-  const [submitted, setSubmitted] = (0, import_react7.useState)(false);
-  const [opening, setOpening] = (0, import_react7.useState)(false);
-  const [reference, setReference] = (0, import_react7.useState)("");
-  const orderRef = (0, import_react7.useRef)("");
-  const errors = (0, import_react7.useMemo)(() => validate(details), [details]);
+  const [step, setStep] = (0, import_react8.useState)("details");
+  const [touched, setTouched] = (0, import_react8.useState)({});
+  const [submitted, setSubmitted] = (0, import_react8.useState)(false);
+  const [opening, setOpening] = (0, import_react8.useState)(false);
+  const [reference, setReference] = (0, import_react8.useState)("");
+  const orderRef = (0, import_react8.useRef)("");
+  const errors = (0, import_react8.useMemo)(() => validate(details), [details]);
   const showError = (k) => (submitted || touched[k]) && errors[k] ? errors[k] : void 0;
   const markTouched = (key) => setTouched((t) => ({ ...t, [key]: true }));
   const update = (key, value) => {
@@ -1623,7 +1777,7 @@ function Checkout({ navigate }) {
     setStep("review");
     window.scrollTo({ top: 0 });
   };
-  const order = (0, import_react7.useMemo)(() => {
+  const order = (0, import_react8.useMemo)(() => {
     if (!reference) return null;
     return {
       lines,
@@ -1926,11 +2080,11 @@ function Checkout({ navigate }) {
     ] })
   ] });
 }
-var import_react7, import_jsx_runtime10, REQUIRED;
+var import_react8, import_jsx_runtime10, REQUIRED;
 var init_Checkout = __esm({
   "src/pages/Checkout.tsx"() {
     "use strict";
-    import_react7 = require("react");
+    import_react8 = require("react");
     init_shop();
     init_site();
     init_format();
@@ -2149,13 +2303,14 @@ var init_ProductCard = __esm({
 
 // src/pages/Home.tsx
 function Home({ navigate }) {
-  const fresh = (0, import_react8.useMemo)(() => {
-    const newlyAdded = PRODUCTS.filter((p) => isNewArrival(p));
-    return (newlyAdded.length > 0 ? newlyAdded : PRODUCTS).slice(0, 4);
-  }, []);
-  const featured = (0, import_react8.useMemo)(() => PRODUCTS.slice(0, 8), []);
-  const heroPiece = (0, import_react8.useMemo)(() => PRODUCTS.find(hasPhotos) ?? PRODUCTS[0], []);
-  const photoCount = (0, import_react8.useMemo)(() => PRODUCTS.filter(hasPhotos).length, []);
+  const { products } = useShop();
+  const fresh = (0, import_react9.useMemo)(() => {
+    const newlyAdded = products.filter((p) => isNewArrival(p));
+    return (newlyAdded.length > 0 ? newlyAdded : products).slice(0, 4);
+  }, [products]);
+  const featured = (0, import_react9.useMemo)(() => products.slice(0, 8), [products]);
+  const heroPiece = (0, import_react9.useMemo)(() => products.find(hasPhotos) ?? products[0] ?? null, [products]);
+  const photoCount = (0, import_react9.useMemo)(() => products.filter(hasPhotos).length, [products]);
   return /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(import_jsx_runtime13.Fragment, { children: [
     /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("section", { className: "relative overflow-hidden border-b border-[#EDE5D5]/10", children: /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:py-16", children: [
       /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "fade-up", children: [
@@ -2192,8 +2347,8 @@ function Home({ navigate }) {
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "relative", children: [
         /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "relative overflow-hidden rounded-2xl border border-[#EDE5D5]/14 bg-[#121014]", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: "product-frame", children: /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(ProductMedia, { product: heroPiece, priority: true, sizes: "(max-width: 1024px) 100vw, 45vw" }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-4", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: "product-frame", children: heroPiece ? /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(ProductMedia, { product: heroPiece, priority: true, sizes: "(max-width: 1024px) 100vw, 45vw" }) : /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: "h-full w-full animate-pulse bg-white/5", "aria-hidden": "true" }) }),
+          heroPiece && /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-4", children: [
             /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("p", { className: "eyebrow text-[#EDE5D5]/55", children: photoCount > 0 ? "On the rack" : "The rack, illustrated" }),
             /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("p", { className: "mt-0.5 font-display text-2xl font-extrabold", children: heroPiece.name }),
             /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(
@@ -2311,14 +2466,15 @@ function Home({ navigate }) {
     ] }) })
   ] });
 }
-var import_react8, import_jsx_runtime13;
+var import_react9, import_jsx_runtime13;
 var init_Home = __esm({
   "src/pages/Home.tsx"() {
     "use strict";
-    import_react8 = require("react");
+    import_react9 = require("react");
     init_ProductCard();
     init_site();
     init_products();
+    init_shop2();
     init_ProductMedia();
     init_ui();
     import_jsx_runtime13 = require("react/jsx-runtime");
@@ -2330,12 +2486,12 @@ function ProductPage({
   slug,
   navigate
 }) {
-  const product = PRODUCT_BY_SLUG.get(slug);
-  const { addToBag, toggleSaved, isSaved, notify } = useShop();
-  const [active, setActive] = (0, import_react9.useState)(0);
-  const [qty, setQty] = (0, import_react9.useState)(1);
-  const [zoom, setZoom] = (0, import_react9.useState)(false);
-  (0, import_react9.useEffect)(() => {
+  const { products, bySlug, addToBag, toggleSaved, isSaved, notify } = useShop();
+  const product = bySlug.get(slug);
+  const [active, setActive] = (0, import_react10.useState)(0);
+  const [qty, setQty] = (0, import_react10.useState)(1);
+  const [zoom, setZoom] = (0, import_react10.useState)(false);
+  (0, import_react10.useEffect)(() => {
     setActive(0);
     setQty(1);
     setZoom(false);
@@ -2352,9 +2508,9 @@ function ProductPage({
   const available = isAvailable(product);
   const saved = isSaved(product.slug);
   const image = product.images[active];
-  const related = (0, import_react9.useMemo)(
-    () => PRODUCTS.filter((p) => p.slug !== product.slug).sort((a, b) => Number(b.category === product.category) - Number(a.category === product.category)).slice(0, 4),
-    [product.slug, product.category]
+  const related = (0, import_react10.useMemo)(
+    () => products.filter((p) => p.slug !== product.slug).sort((a, b) => Number(b.category === product.category) - Number(a.category === product.category)).slice(0, 4),
+    [products, product.slug, product.category]
   );
   const guide = CONDITION_GUIDE.find((g) => g.label === product.condition);
   return /* @__PURE__ */ (0, import_jsx_runtime14.jsxs)("div", { className: "mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10", children: [
@@ -2537,11 +2693,11 @@ function ProductPage({
     ] })
   ] });
 }
-var import_react9, import_jsx_runtime14, KIND_LABEL;
+var import_react10, import_jsx_runtime14, KIND_LABEL;
 var init_ProductPage = __esm({
   "src/pages/ProductPage.tsx"() {
     "use strict";
-    import_react9 = require("react");
+    import_react10 = require("react");
     init_shop();
     init_products();
     init_format();
@@ -2568,18 +2724,18 @@ function Shop({
   setParams,
   headingOverride
 }) {
-  const { saved } = useShop();
-  const [query, setQuery] = (0, import_react10.useState)(params.get("q") ?? "");
+  const { saved, products, catalogueStatus } = useShop();
+  const [query, setQuery] = (0, import_react11.useState)(params.get("q") ?? "");
   const category = params.get("category") ?? "All";
   const sort = params.get("sort") ?? "featured";
   const newOnly = params.get("new") === "1";
   const wishlistOnly = params.get("wishlist") === "1";
   const condition = params.get("condition") ?? "";
   const urlQuery = params.get("q") ?? "";
-  (0, import_react10.useEffect)(() => setQuery(urlQuery), [urlQuery]);
-  const results = (0, import_react10.useMemo)(() => {
+  (0, import_react11.useEffect)(() => setQuery(urlQuery), [urlQuery]);
+  const results = (0, import_react11.useMemo)(() => {
     const q = urlQuery.trim().toLowerCase();
-    let list = PRODUCTS.filter((p) => {
+    let list = products.filter((p) => {
       if (category !== "All" && p.category !== category) return false;
       if (condition && p.condition !== condition) return false;
       if (newOnly && !isNewArrival(p)) return false;
@@ -2604,7 +2760,7 @@ function Shop({
         list = [...list].sort((a, b) => Number(Boolean(b.tag)) - Number(Boolean(a.tag)));
     }
     return list;
-  }, [category, condition, newOnly, wishlistOnly, sort, urlQuery, saved]);
+  }, [category, condition, newOnly, wishlistOnly, sort, urlQuery, saved, products]);
   const activeFilters = [
     category !== "All" && { key: "category", label: category },
     condition && { key: "condition", label: condition },
@@ -2738,7 +2894,14 @@ function Shop({
         )
       ] })
     ] }),
-    results.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "mt-16 rounded-2xl border border-dashed border-[#EDE5D5]/15 bg-white/[0.02] px-6 py-16 text-center", children: [
+    catalogueStatus === "loading" ? /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4", "aria-hidden": "true", children: Array.from({ length: 8 }).map((_, i) => /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "overflow-hidden rounded-2xl border border-[#EDE5D5]/10 bg-white/[0.02]", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "animate-pulse bg-white/5", style: { aspectRatio: "4 / 5" } }),
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "space-y-2 p-3.5", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "h-2.5 w-1/3 animate-pulse rounded bg-white/10" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "h-3 w-3/4 animate-pulse rounded bg-white/10" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "h-6 w-1/2 animate-pulse rounded bg-white/10" })
+      ] })
+    ] }, i)) }) : results.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "mt-16 rounded-2xl border border-dashed border-[#EDE5D5]/15 bg-white/[0.02] px-6 py-16 text-center", children: [
       /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("p", { className: "font-display text-3xl font-bold uppercase", children: wishlistOnly ? "Nothing saved yet" : "No pieces match that" }),
       /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("p", { className: "mx-auto mt-2 max-w-sm text-sm text-[#EDE5D5]/50", children: wishlistOnly ? "Tap the heart on any piece to save it here." : urlQuery ? `We couldn't find \u201C${urlQuery}\u201D. Try a broader search or browse a category.` : "Try a different category or condition." }),
       /* @__PURE__ */ (0, import_jsx_runtime15.jsx)(
@@ -2757,11 +2920,11 @@ function Shop({
     /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("p", { className: "mt-10 text-center text-xs text-[#EDE5D5]/35", children: "Favourites and your bag are saved on this device. Every piece is one of one." })
   ] });
 }
-var import_react10, import_jsx_runtime15, SORTS;
+var import_react11, import_jsx_runtime15, SORTS;
 var init_Shop = __esm({
   "src/pages/Shop.tsx"() {
     "use strict";
-    import_react10 = require("react");
+    import_react11 = require("react");
     init_ProductCard();
     init_products();
     init_shop();
@@ -2785,13 +2948,13 @@ __export(App_exports, {
 });
 function Shell() {
   const { route, navigate, params, url } = useRouter();
-  const { toast, count } = useShop();
-  const [bagOpen, setBagOpen] = (0, import_react11.useState)(false);
-  const [query, setQuery] = (0, import_react11.useState)("");
-  (0, import_react11.useEffect)(() => {
+  const { toast, count, catalogueError } = useShop();
+  const [bagOpen, setBagOpen] = (0, import_react12.useState)(false);
+  const [query, setQuery] = (0, import_react12.useState)("");
+  (0, import_react12.useEffect)(() => {
     setQuery(params.get("q") ?? "");
   }, [url]);
-  const setParams = (0, import_react11.useCallback)((next) => {
+  const setParams = (0, import_react12.useCallback)((next) => {
     const p = new URLSearchParams(window.location.search);
     for (const [k, v] of Object.entries(next)) {
       if (v === null || v === "") p.delete(k);
@@ -2800,7 +2963,7 @@ function Shell() {
     const qs = p.toString();
     navigate(`${window.location.pathname}${qs ? `?${qs}` : ""}`, { keepScroll: true });
   }, [navigate]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react12.useEffect)(() => {
     const onKey = (e) => {
       if (e.key.toLowerCase() === "b" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
@@ -2824,6 +2987,10 @@ function Shell() {
         }
       }
     ),
+    catalogueError && /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)("p", { role: "status", className: "border-b border-[#d8a423]/25 bg-[#d8a423]/10 px-4 py-2 text-center text-xs text-[#f0d79a]", children: [
+      "Showing the built-in catalogue \u2014 ",
+      catalogueError
+    ] }),
     /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)("main", { id: "main", className: "flex-1", children: [
       route.name === "home" && /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(Home, { navigate }),
       route.name === "shop" && /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
@@ -2881,11 +3048,11 @@ function Shell() {
 function App() {
   return /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(ShopProvider, { children: /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(Shell, {}) });
 }
-var import_react11, import_jsx_runtime16;
+var import_react12, import_jsx_runtime16;
 var init_App = __esm({
   "src/App.tsx"() {
     "use strict";
-    import_react11 = require("react");
+    import_react12 = require("react");
     init_BagDrawer();
     init_Footer();
     init_Header();

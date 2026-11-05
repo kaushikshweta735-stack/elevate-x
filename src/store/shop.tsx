@@ -10,7 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { DELIVERY } from "../data/shop";
-import { PRODUCT_BY_SLUG, type Product } from "../data/products";
+import type { Product } from "../data/products";
+import { useCatalogue } from "../lib/cms";
 
 /* ------------------------------------------------------------------ */
 /* Cart                                                                */
@@ -41,7 +42,8 @@ type Action =
   | { type: "qty"; id: string; qty: number }
   | { type: "remove"; id: string }
   | { type: "clear" }
-  | { type: "wishlist"; slug: string };
+  | { type: "wishlist"; slug: string }
+  | { type: "prune"; validSlugs: string[]; soldSlugs: string[] };
 
 const lineId = (slug: string, size: string) => `${slug}::${size}`;
 const MAX_QTY = 5; // thrift stock is tiny — keep a sane ceiling
@@ -77,6 +79,14 @@ function reducer(state: State, action: Action): State {
       return { ...state, lines: state.lines.filter((l) => l.id !== action.id) };
     case "clear":
       return { ...state, lines: [] };
+    case "prune": {
+      const valid = new Set(action.validSlugs);
+      const sold = new Set(action.soldSlugs);
+      const lines = state.lines.filter((l) => valid.has(l.slug) && !sold.has(l.slug));
+      const saved = state.saved.filter((s) => valid.has(s));
+      if (lines.length === state.lines.length && saved.length === state.saved.length) return state;
+      return { ...state, lines, saved };
+    }
     case "wishlist": {
       const has = state.saved.includes(action.slug);
       return {
@@ -100,18 +110,15 @@ function readStored(): Partial<State> {
     const lines: CartLine[] = rawCart ? JSON.parse(rawCart) : [];
     const saved: string[] = rawSaved ? JSON.parse(rawSaved) : [];
     return {
-      // drop lines whose product no longer exists or is sold out
+      // structure is validated here; existence/sold-out is reconciled once the
+      // catalogue has loaded (see the `prune` effect in ShopProvider)
       lines: Array.isArray(lines)
         ? lines
-            .filter((l) => l && typeof l.slug === "string" && PRODUCT_BY_SLUG.has(l.slug))
-            .filter((l) => {
-              const p = PRODUCT_BY_SLUG.get(l.slug);
-              return p ? p.availability !== "sold" : false;
-            })
-            .filter((l) => typeof l.size === "string" && Number.isFinite(l.qty) && l.qty > 0)
+            .filter((l) => l && typeof l.slug === "string" && typeof l.size === "string")
+            .filter((l) => Number.isFinite(l.qty) && l.qty > 0)
             .map((l) => ({ ...l, id: lineId(l.slug, l.size), qty: Math.min(MAX_QTY, Math.round(l.qty)) }))
         : [],
-      saved: Array.isArray(saved) ? saved.filter((s) => PRODUCT_BY_SLUG.has(s)) : [],
+      saved: Array.isArray(saved) ? saved.filter((s) => typeof s === "string") : [],
     };
   } catch {
     return {};
@@ -157,6 +164,12 @@ const DETAILS_KEY = "elevate.checkout.v1";
 /* ------------------------------------------------------------------ */
 
 interface ShopContextValue {
+  /** Live catalogue — CMS-backed when configured, built-in otherwise. */
+  products: Product[];
+  bySlug: Map<string, Product>;
+  catalogueSource: "cms" | "built-in";
+  catalogueStatus: "loading" | "ready";
+  catalogueError?: string;
   hydrated: boolean;
   lines: CartLineView[];
   count: number;
@@ -179,6 +192,7 @@ interface ShopContextValue {
 const ShopContext = createContext<ShopContextValue | null>(null);
 
 export function ShopProvider({ children }: { children: ReactNode }) {
+  const catalogue = useCatalogue();
   const [state, dispatch] = useReducer(reducer, { lines: [], saved: [], hydrated: false });
   const [toast, setToast] = useState("");
   const [details, setDetailsState] = useState<CheckoutDetails>(EMPTY_DETAILS);
@@ -224,14 +238,24 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     if (!opts?.silent) notify(`${p.name} added to bag`);
   }, [notify]);
 
+  /* Drop cart/wishlist entries whose piece no longer exists or has sold. */
+  useEffect(() => {
+    if (!state.hydrated || catalogue.status !== "ready") return;
+    dispatch({
+      type: "prune",
+      validSlugs: catalogue.products.map((p) => p.slug),
+      soldSlugs: catalogue.products.filter((p) => p.availability === "sold").map((p) => p.slug),
+    });
+  }, [state.hydrated, catalogue.status, catalogue.products]);
+
   const lines = useMemo<CartLineView[]>(
     () =>
       state.lines.flatMap((l) => {
-        const product = PRODUCT_BY_SLUG.get(l.slug);
+        const product = catalogue.bySlug.get(l.slug);
         if (!product) return [];
         return [{ ...l, product, lineTotal: product.price * l.qty }];
       }),
-    [state.lines],
+    [state.lines, catalogue.bySlug],
   );
 
   const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
@@ -247,6 +271,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const total = deliveryCharge === null ? null : subtotal + deliveryCharge;
 
   const value: ShopContextValue = {
+    products: catalogue.products,
+    bySlug: catalogue.bySlug,
+    catalogueSource: catalogue.source,
+    catalogueStatus: catalogue.status,
+    catalogueError: catalogue.error,
     hydrated: state.hydrated,
     lines,
     count,
